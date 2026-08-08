@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lanzou-resolver"
+version = "0.1.1"
+description = "Lanzou cloud (lanzou/蓝奏云) share URL resolver and downloader, standard library only"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "kuank" }]
+keywords = ["lanzou", "lanzouyun", "蓝奏云", "网盘", "downloader", "resolver"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/kuankqaq/lanzou-resolver"
+Repository = "https://github.com/kuankqaq/lanzou-resolver"
+
+[project.scripts]
+lanzou-resolver = "lanzou_resolver.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
