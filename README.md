@@ -51,6 +51,19 @@ lanzou-resolver --download --output-dir . "https://wwbou.lanzouq.com/i0zxZ3d30m8
 
 输出为 JSON，包含 `file_id`、文件名、落地页 URL、最终直链；下载模式额外输出保存路径和 SHA-256。
 
+## 发布
+
+GitHub Actions 会在推送 `main`、创建 PR 或手动运行时执行测试和构建。推送 `v` 开头的版本标签时，检查标签与 `pyproject.toml`、`src/lanzou_resolver/__init__.py` 中的版本一致，通过后自动发布到 PyPI。
+
+发布凭据保存在仓库的 Actions Secret `PYPI_API_TOKEN` 中。
+
+例如发布下一版：将两处版本更新为 `0.1.3`，提交并推送后运行：
+
+```bash
+git tag v0.1.3
+git push origin v0.1.3
+```
+
 ## 限制
 
 - 非官方接口，站点随时可能更换字段、混淆、域名或验证方式，失效需重新逆向
