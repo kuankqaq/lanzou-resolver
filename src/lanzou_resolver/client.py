@@ -78,6 +78,16 @@ def _safe_filename(name: str) -> str:
     return name or "download.bin"
 
 
+def _active_script(html: str) -> str:
+    # Preserve quoted URLs while removing decoy API calls in JS comments.
+    return re.sub(
+        r"(['\"])(?:\\.|(?!\1)[^\\])*?\1|/\*.*?\*/|//[^\r\n]*",
+        lambda match: match.group(0) if match.group(1) else "",
+        html,
+        flags=re.DOTALL,
+    )
+
+
 class LanzouClient:
     def __init__(self, timeout: float = 30.0) -> None:
         self.timeout = timeout
@@ -142,27 +152,43 @@ class LanzouClient:
         )
         self.cookies.set_cookie(cookie)
 
-    def get_share_page(self, share_url: str) -> str:
-        response, body = self._open(share_url)
+    def _open_page(self, url: str, *, referer: str | None = None):
+        response, body = self._open(url, referer=referer)
         html = _decode_response(response, body)
         challenge = re.search(r"var\s+arg1\s*=\s*['\"]([0-9A-Fa-f]{40})", html)
         if challenge:
-            self._set_acw_cookie(share_url, compute_acw_sc_v2(challenge.group(1)))
-            response, body = self._open(share_url)
-            html = _decode_response(response, body)
+            self._set_acw_cookie(response.geturl(), compute_acw_sc_v2(challenge.group(1)))
+            response, body = self._open(url, referer=referer)
+        return response, body
+
+    def get_share_page(self, share_url: str) -> str:
+        response, body = self._open_page(share_url)
+        html = _decode_response(response, body)
         # 新版页面走 ajaxm.php，旧版无密码页面走 /fn? 的 iframe
-        if "ajaxm.php" not in html and "/fn?" not in html:
+        if not re.search(r"ajax(?:m|file)\.php", html) and "/fn?" not in html:
             raise LanzouError("share page did not expose the expected download API")
         return html
 
     @staticmethod
     def parse_share_page(html: str) -> tuple[str, str]:
-        active = re.sub(r"/\*.*?\*/", "", html, flags=re.DOTALL)
-        endpoint_match = re.search(r"['\"](/ajaxm\.php\?file=(\d+))['\"]", active)
-        sign_match = re.search(r"['\"]sign['\"]\s*:\s*['\"]([^'\"]+)['\"]", active)
+        active = _active_script(html)
+        endpoint_match = re.search(
+            r"\burl\s*:\s*['\"]((?:https?://[^/'\"]+)?/ajax(?:m|file)\.php\?file=\d+)['\"]",
+            active,
+        )
+        sign_match = re.search(r"['\"]sign['\"]\s*:\s*(?:['\"]([^'\"]+)['\"]|([A-Za-z_$][\w$]*))", active)
         if not endpoint_match or not sign_match:
             raise LanzouError("could not parse file id/sign from share page")
-        return endpoint_match.group(1), sign_match.group(1)
+        sign = sign_match.group(1)
+        if sign is None:
+            assignments = re.findall(
+                r"\bvar\s+" + re.escape(sign_match.group(2)) + r"\s*=\s*['\"]([^'\"]*)['\"]",
+                active[:sign_match.start()],
+            )
+            if not assignments or not assignments[-1]:
+                raise LanzouError("could not parse sign variable from share page")
+            sign = assignments[-1]
+        return endpoint_match.group(1), sign
 
     def resolve(self, share_url: str, password: str | None = None) -> ResolveResult:
         html = self.get_share_page(share_url)
@@ -172,7 +198,7 @@ class LanzouClient:
             raise LanzouError("该分享需要密码")
 
         filename_hint: str | None = None
-        if "ajaxm.php" in html:
+        if re.search(r"ajax(?:m|file)\.php", html):
             # 新版页面：签名直接在分享页 JS 中
             endpoint, sign = self.parse_share_page(html)
             file_id = urllib.parse.parse_qs(urllib.parse.urlsplit(endpoint).query)["file"][0]
@@ -220,7 +246,7 @@ class LanzouClient:
         filename = result.get("inf") or filename_hint or "download.bin"
         dom = result.get("dom") or "https://slssctm.dmpdmp.com"
         landing_url = dom.rstrip("/") + "/file/" + result["url"]
-        response, body = self._open(landing_url, referer=share_url)
+        response, body = self._open_page(landing_url, referer=share_url)
         content_type = response.headers.get_content_type()
         if content_type != "text/html":
             return ResolveResult(

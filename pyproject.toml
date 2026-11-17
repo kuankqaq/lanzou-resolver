@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lanzou-resolver"
-version = "0.1.1"
+version = "0.1.2"
 description = "Lanzou cloud (lanzou/蓝奏云) share URL resolver and downloader, standard library only"
 readme = "README.md"
 requires-python = ">=3.9"
