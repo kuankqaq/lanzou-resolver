@@ -1,5 +1,7 @@
 """lanzou-resolver - 蓝奏云分享链接解析/下载客户端。"""
 
+from __future__ import annotations
+
 from .client import LANZOU_DOMAINS, LanzouClient, LanzouError, ResolveResult
 
 __version__ = "0.1.2"
